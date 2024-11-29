@@ -1,0 +1,175 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// Configurações do LCD
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+// Pins dos botões
+const int button1Pin = 2; // Botão 1 (opção A)
+const int button2Pin = 3; // Botão 2 (opção B)
+
+// Variáveis
+int currentQuestion = 0; // Pergunta atual
+bool quizStarted = false; // Indica se o quiz começou
+int score = 0; // Pontuação do jogador
+int highScore = 0; // Maior pontuação já atingida
+const unsigned long debounceDelay = 50; // Delay para debounce dos botões
+
+// Lista de perguntas, respostas e respostas corretas
+const int numQuestions = 5; // Número total de perguntas
+String questions[numQuestions][5] = {
+  {"O marco zero e o", "centro inicial da", "cidade", ""},
+  {"A rua do bom jesus", "foi eleita uma", "rua mais bonita", "do mundo"},
+  {"A torre Malakoff ", "esta localizada no", "Recife antigo", ""},
+  {"O obelisco de", "Brennand so pode", "ser acessado de", "barco"},
+  {"Mauricio de Nassau", "fez a primeira ponte", "de Recife"}
+};
+int correctAnswers[] = {0, 0, 0, 1, 0};
+
+void setup() {
+  // Inicializa os botões e o LCD
+  pinMode(button1Pin, INPUT_PULLUP);
+  pinMode(button2Pin, INPUT_PULLUP);
+  lcd.init();
+  lcd.backlight();
+
+  // Mensagem de boas-vindas
+  lcd.clear();
+  lcd.print("Bem-vindo ao quiz!");
+  lcd.setCursor(0, 1);
+  lcd.print("Aperte um botao");
+
+  // Aguarda o jogador apertar qualquer botão
+  while (digitalRead(button1Pin) == HIGH && digitalRead(button2Pin) == HIGH) {
+    // Espera até que qualquer botão seja pressionado
+  }
+
+  // Mensagem inicial após o botão ser pressionado
+  lcd.clear();
+  lcd.print("Iniciando...");
+  delay(1000);
+}
+
+void loop() {
+  // Debounce dos botões
+  static unsigned long lastDebounceTime1 = 0;
+  static unsigned long lastDebounceTime2 = 0;
+  int button1State = digitalRead(button1Pin);
+  int button2State = digitalRead(button2Pin);
+
+  if (button1State == LOW && millis() - lastDebounceTime1 > debounceDelay) {
+    checkAnswer(0);
+    lastDebounceTime1 = millis();
+  } else if (button2State == LOW && millis() - lastDebounceTime2 > debounceDelay) {
+    checkAnswer(1);
+    lastDebounceTime2 = millis();
+  }
+
+  // Inicia o quiz se nenhum botão tiver sido pressionado ainda
+  if (!quizStarted && (button1State == HIGH && button2State == HIGH)) {
+    quizStarted = true;
+    showQuestion();
+  }
+}
+
+void showQuestion() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(questions[currentQuestion][0]);
+  lcd.setCursor(0, 1);
+  lcd.print(questions[currentQuestion][1]);
+  lcd.setCursor(0, 2);
+  lcd.print(questions[currentQuestion][2]);
+  lcd.setCursor(0, 3);
+  lcd.print(questions[currentQuestion][3]);
+}
+
+void checkAnswer(int answer) {
+  lcd.clear();
+  if (answer == correctAnswers[currentQuestion]) {
+    lcd.print("Correto!");
+    score++;
+  } else {
+    lcd.print("Errado!");
+  }
+
+  // Mostra pontuação atual
+  lcd.setCursor(0, 1);
+  lcd.print("Pontos: ");
+  lcd.print(score);
+
+  delay(1500);
+
+  // Verifica se é a última pergunta
+  if (currentQuestion == numQuestions - 1) {
+    endQuiz();
+  } else {
+    currentQuestion++;
+    showQuestion();
+  }
+}
+
+void endQuiz() {
+  lcd.clear();
+  lcd.print("Fim do quiz!");
+  lcd.setCursor(0, 1);
+  lcd.print("Pontuacao: ");
+  lcd.print(score);
+
+  // Atualiza o recorde, se necessário
+  if (score > highScore) {
+    highScore = score;
+  }
+
+  delay(2000);
+
+  // Caso pontuação >= 3, exibe parabéns, senha e retorna ao início
+  if (score >= 3) {
+    lcd.clear();
+    lcd.print("Parabens!");
+    lcd.setCursor(0, 1);
+    lcd.print("Senha: 123456");
+
+    // Contador de 10 segundos
+    for (int i = 10; i > 0; i--) {
+      lcd.setCursor(0, 2);
+      lcd.print("Reiniciando em ");
+      lcd.print(i);
+      lcd.print("s   "); // Espaço para apagar caracteres antigos
+      delay(1000);
+    }
+
+    // Reinicia o quiz após exibir mensagem
+    resetQuiz();
+    return;
+  }
+
+  // Reinicia o quiz normalmente
+  resetQuiz();
+}
+
+void resetQuiz() {
+  // Reinicia as variáveis
+  currentQuestion = 0;
+  score = 0;
+  quizStarted = false;
+
+  // Mensagem inicial novamente
+  lcd.clear();
+  lcd.print("Bem-vindo ao quiz!");
+  lcd.setCursor(0, 1);
+  lcd.print("Aperte um botao");
+
+  // Aguarda o jogador apertar um botão para reiniciar o quiz
+  while (digitalRead(button1Pin) == HIGH && digitalRead(button2Pin) == HIGH) {
+    // Espera até que qualquer botão seja pressionado
+  }
+
+  // Após o botão ser pressionado, inicia o quiz
+  lcd.clear();
+  lcd.print("Iniciando...");
+  delay(1000);
+
+  quizStarted = true; // Marca que o quiz começou
+  showQuestion();     // Mostra a primeira pergunta
+}
